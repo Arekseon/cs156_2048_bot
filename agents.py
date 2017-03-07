@@ -1,30 +1,10 @@
-"""Implement Agents and Environments (Chapters 1-2).
-
-The class hierarchies are as follows:
-
-Object ## A physical object that can exist in an environment
-    Agent
-        Wumpus
-        RandomAgent
-        ReflexVacuumAgent
-        ...
-    Dirt
-    Wall
-    ...
-    
-Environment ## An environment holds objects, runs simulations
-    XYEnvironment
-        VacuumEnvironment
-        WumpusEnvironment
-
-EnvFrame ## A graphical representation of the Environment
-
-"""
-
-#import utils
 import random, copy, time, sys
 from random import randint
-grid_size = 10
+
+
+#Define those two variables if you want
+GRID_SIZE = 10
+DELAY = 0.01
 try: 
     from termcolor import colored
     with_colors = True
@@ -44,6 +24,7 @@ color_code = {  "0":"white",
                 "2048":"white"
     
     }
+action_list = ["R","L","U","D"]
 #______________________________________________________________________________
 
 class Object:
@@ -91,84 +72,6 @@ def TraceAgent(agent):
     agent.program = new_program
     return agent
 
-#______________________________________________________________________________
-
-class TableDrivenAgent(Agent):
-    """This agent selects an action based on the percept sequence.
-    It is practical only for tiny domains.
-    To customize it you provide a table to the constructor. [Fig. 2.7]"""
-    
-    def __init__(self, table):
-        "Supply as table a dictionary of all {percept_sequence:action} pairs."
-        ## The agent program could in principle be a function, but because
-        ## it needs to store state, we make it a callable instance of a class.
-        Agent.__init__(self)
-        percepts = []
-        def program(percept):
-            percepts.append(percept)
-            action = table.get(tuple(percepts))
-            return action
-        self.program = program
-
-
-class RandomAgent(Agent):
-    "An agent that chooses an action at random, ignoring all percepts."
-    def __init__(self, actions):
-        Agent.__init__(self)
-        self.program = lambda percept: random.choice(actions)
-
-
-#______________________________________________________________________________
-
-loc_A, loc_B = (0, 0), (1, 0) # The two locations for the Vacuum world
-
-class ReflexVacuumAgent(Agent):
-    "A reflex agent for the two-state vacuum environment. [Fig. 2.8]"
-
-    def __init__(self):
-        Agent.__init__(self)
-        def program((location, status)):
-            if status == 'Dirty': return 'Suck'
-            elif location == loc_A: return 'Right'
-            elif location == loc_B: return 'Left'
-        self.program = program
-
-
-def RandomVacuumAgent():
-    "Randomly choose one of the actions from the vaccum environment."
-    return RandomAgent(['Right', 'Left', 'Suck', 'NoOp'])
-
-
-def TableDrivenVacuumAgent():
-    "[Fig. 2.3]"
-    table = {((loc_A, 'Clean'),): 'Right',
-             ((loc_A, 'Dirty'),): 'Suck',
-             ((loc_B, 'Clean'),): 'Left',
-             ((loc_B, 'Dirty'),): 'Suck',
-             ((loc_A, 'Clean'), (loc_A, 'Clean')): 'Right',
-             ((loc_A, 'Clean'), (loc_A, 'Dirty')): 'Suck',
-             # ...
-             ((loc_A, 'Clean'), (loc_A, 'Clean'), (loc_A, 'Clean')): 'Right',
-             ((loc_A, 'Clean'), (loc_A, 'Clean'), (loc_A, 'Dirty')): 'Suck',
-             # ...
-             }
-    return TableDrivenAgent(table)
-
-
-class ModelBasedVacuumAgent(Agent):
-    "An agent that keeps track of what locations are clean or dirty."
-    def __init__(self):
-        Agent.__init__(self)
-        model = {loc_A: None, loc_B: None}
-        def program((location, status)):
-            "Same as ReflexVacuumAgent, except if everything is clean, do NoOp"
-            model[location] = status ## Update the model here
-            if model[loc_A] == model[loc_B] == 'Clean': return 'NoOp'
-            elif status == 'Dirty': return 'Suck'
-            elif location == loc_A: return 'Right'
-            elif location == loc_B: return 'Left'
-        self.program = program
-        
 #______________________________________________________________________________
 
 class Environment:
@@ -236,119 +139,8 @@ class Environment:
             self.agents.append(object)
 	return self
     
-
-class XYEnvironment(Environment):
-    """This class is for environments on a 2D plane, with locations
-    labelled by (x, y) points, either discrete or continuous.  Agents
-    perceive objects within a radius.  Each agent in the environment
-    has a .location slot which should be a location such as (0, 1),
-    and a .holding slot, which should be a list of objects that are
-    held """
-
-    def __init__(self, width=10, height=10):
-        #update(self, objects=[], agents=[], width=width, height=height)
-        self.objects=self.agents=[]
-        self.width = width
-        self.height = height
-
-    def objects_at(self, location):
-        "Return all objects exactly at a given location."
-        return [obj for obj in self.objects if obj.location == location]
-
-    def objects_near(self, location, radius):
-        "Return all objects within radius of location."
-        radius2 = radius * radius
-        return [obj for obj in self.objects
-                if distance2(location, obj.location) <= radius2]
-
-    def percept(self, agent):
-        "By default, agent perceives objects within radius r."
-        return [self.object_percept(obj, agent)
-                for obj in self.objects_near(agent)]
-
-    def execute_action(self, agent, action):
-        if action == 'TurnRight':
-            agent.heading = turn_heading(agent.heading, -1)
-        elif action == 'TurnLeft':
-            agent.heading = turn_heading(agent.heading, +1)
-        elif action == 'Forward':
-            self.move_to(agent, vector_add(agent.heading, agent.location))
-        elif action == 'Grab':
-            objs = [obj for obj in self.objects_at(agent.location)
-                    if obj.is_grabable(agent)]
-            if objs:
-                agent.holding.append(objs[0])
-        elif action == 'Release':
-            if agent.holding:
-                agent.holding.pop()
-        agent.bump = False
-
-    def object_percept(self, obj, agent): #??? Should go to object?
-        "Return the percept for this object."
-        return obj.__class__.__name__
-
-    def default_location(self, object):
-        return (random.choice(self.width), random.choice(self.height))
-
-    def move_to(object, destination):
-        "Move an object to a new location."
-        
-    def add_object(self, object, location=(1, 1)):
-        Environment.add_object(self, object, location)
-        object.holding = []
-        object.held = None
-        self.objects.append(object)
-
-    def add_walls(self):
-        "Put walls around the entire perimeter of the grid."
-        for x in range(self.width):
-            self.add_object(Wall(), (x, 0))
-            self.add_object(Wall(), (x, self.height-1))
-        for y in range(self.height):
-            self.add_object(Wall(), (0, y))
-            self.add_object(Wall(), (self.width-1, y))
-
-def turn_heading(self, heading, inc,
-                 headings=[(1, 0), (0, 1), (-1, 0), (0, -1)]):
-    "Return the heading to the left (inc=+1) or right (inc=-1) in headings."
-    return headings[(headings.index(heading) + inc) % len(headings)]  
-
 #______________________________________________________________________________
-## Vacuum environment 
-
-class TrivialVacuumEnvironment(Environment):
-    """This environment has two locations, A and B. Each can be Dirty or Clean.
-    The agent perceives its location and the location's status. This serves as
-    an example of how to implement a simple Environment."""
-
-    def __init__(self):
-        Environment.__init__(self)
-        self.status = {loc_A:random.choice(['Clean', 'Dirty']),
-                       loc_B:random.choice(['Clean', 'Dirty'])}
-        
-    def percept(self, agent):
-        "Returns the agent's location, and the location status (Dirty/Clean)."
-        return (agent.location, self.status[agent.location])
-
-    def execute_action(self, agent, action):
-        """Change agent's location and/or location's status; track performance.
-        Score 10 for each dirt cleaned; -1 for each move."""
-        if action == 'Right':
-            agent.location = loc_B
-            agent.performance -= 1
-        elif action == 'Left':
-            agent.location = loc_A
-            agent.performance -= 1
-        elif action == 'Suck':
-            if self.status[agent.location] == 'Dirty':
-                agent.performance += 10
-            self.status[agent.location] = 'Clean'
-        print("performance of {} is {}".format(agent.__name__, agent.performance))
-
-    def default_location(self, object):
-        "Agents start in either location at random."
-        return random.choice([loc_A, loc_B])
-
+## 2048 Environment
 
 class env_2048(Environment):
     """This environment has two locations, A and B. Each can be Dirty or Clean.
@@ -358,11 +150,13 @@ class env_2048(Environment):
     def __init__(self):
         Environment.__init__(self)
         self.grid = get_empty_grid()
-        # print self.grid
+        self.score = 0
+        self.steps = 0
+        print self.grid
         self.grid = add_random_cell(self.grid)
-        # print self.grid
+        print self.grid
         self.grid = add_random_cell(self.grid)
-        # print self.grid
+        print self.grid
 
 
         
@@ -373,40 +167,43 @@ class env_2048(Environment):
     def execute_action(self, agent, action):
         """Change agent's location and/or location's status; track performance.
         Score 10 for each dirt cleaned; -1 for each move."""
+        self.grid, move_score = merge_on_action(self.grid, action)
+        self.score+=move_score
+        self.steps+=1
 
-        if action == 'R':
-            self.grid = merge_right(self.grid)
-        elif action == 'L':
-            self.grid = merge_left(self.grid)
-        elif action == 'U':
-            self.grid = merge_up(self.grid)
-        elif action == 'D':
-            self.grid = merge_down(self.grid)
-        
         clear_screen()
         self.grid = add_random_cell(self.grid)
         print_grid(self.grid)
-        time.sleep(0.01)
-        # elif action == 'Suck':
-        #     if self.status[agent.location] == 'Dirty':
-        #         agent.performance += 10
-        #     self.status[agent.location] = 'Clean'
-        # print("performance of {} is {}".format(agent.__name__, agent.performance))
+        print("Score: {}".format(self.score))
+        print("Steps: {}".format(self.steps))
+        time.sleep(DELAY)
 
     def default_location(self, object):
         "Agents start in either location at random."
-        return 0#random.choice([loc_A, loc_B])
+        return 0
 
     def is_done(self):
         return check_if_win(self.grid) or check_for_lose(self.grid)
 
+def merge_on_action(grid, action):
+    if action == 'R':
+        return  merge_right(grid)
+    elif action == 'L':
+        return  merge_left(grid)
+    elif action == 'U':
+        return  merge_up(grid)
+    elif action == 'D':
+        return  merge_down(grid)
+    else:
+        return False
 
 def merge_up(grid):
+    score_count = 0
     new_grid =  get_empty_grid()
-    for y in xrange(grid_size):
+    for y in xrange(GRID_SIZE):
         non_emprty_spot = 0
         can_merge = False
-        for x in xrange(grid_size):
+        for x in xrange(GRID_SIZE):
             if (not grid[x][y] == 0):
                 if non_emprty_spot == 0:
                     new_grid[non_emprty_spot][y] = grid[x][y]
@@ -415,37 +212,38 @@ def merge_up(grid):
                 else:
                     if new_grid[non_emprty_spot-1][y] == grid[x][y] and can_merge:
                         new_grid[non_emprty_spot-1][y]*=2
+                        score_count+= new_grid[non_emprty_spot-1][y]
                         can_merge = False
                     else:
                         new_grid[non_emprty_spot][y] = grid[x][y]
                         non_emprty_spot+=1   
-    return new_grid
+    return new_grid, score_count
 
 def merge_left(grid):
     rotated_grid = rorate_grid_n_times(grid, 1)
-    merged_grid = merge_up(rotated_grid)
+    merged_grid, score_count = merge_up(rotated_grid)
     rotated_grid = rorate_grid_n_times(merged_grid, 3)
-    return rotated_grid
+    return rotated_grid, score_count
 
 def merge_down(grid):
     rotated_grid = rorate_grid_n_times(grid, 2)
-    merged_grid = merge_up(rotated_grid)
+    merged_grid, score_count = merge_up(rotated_grid)
     rotated_grid = rorate_grid_n_times(merged_grid, 2)
-    return rotated_grid
+    return rotated_grid, score_count
 
 def merge_right(grid):
     rotated_grid = rorate_grid_n_times(grid, 3)
-    merged_grid = merge_up(rotated_grid)
+    merged_grid, score_count = merge_up(rotated_grid)
     rotated_grid = rorate_grid_n_times(merged_grid, 1)
-    return rotated_grid
+    return rotated_grid, score_count
 
 
 
 def get_empty_grid():
     grid = []
-    for x in xrange(grid_size):
+    for x in xrange(GRID_SIZE):
         c = []
-        for y in xrange(grid_size):
+        for y in xrange(GRID_SIZE):
             c.append(0)
         grid.append(c)
     return  grid
@@ -458,16 +256,16 @@ def rorate_grid_n_times(grid, n):
 
 def rotate_grid_clockwise(grid):
     new_grid = get_empty_grid()
-    for x in xrange(grid_size):
-        for y in xrange(grid_size):
-            new_grid[y][grid_size-1-x] = grid[x][y]
+    for x in xrange(GRID_SIZE):
+        for y in xrange(GRID_SIZE):
+            new_grid[y][GRID_SIZE-1-x] = grid[x][y]
     return new_grid
 
 def add_random_cell(grid):
     added = False
     while not added:
-        x = randint(0,grid_size-1)
-        y = randint(0,grid_size-1)
+        x = randint(0,GRID_SIZE-1)
+        y = randint(0,GRID_SIZE-1)
         number = random.choice([2,4])
         if grid[x][y] == 0:
             grid[x][y] = number
@@ -496,64 +294,64 @@ def clear_screen():
     sys.stdout.flush()
 
 def check_if_win(grid):
-    for x in xrange(grid_size):
-        for y in xrange(grid_size):
+    for x in xrange(GRID_SIZE):
+        for y in xrange(GRID_SIZE):
             if grid[x][y] == 2048:
                 return True
     return False
 
 def check_for_lose(grid):
-    return (grid == merge_left(grid)) and (grid == merge_up(grid)) and (grid == merge_down(grid)) and (grid == merge_right(grid)) 
+    for action in action_list:
+        potential_grid, _ = merge_on_action(grid, action)
+        if not grid == potential_grid:
+            return False
+    print "looser"
+    return True 
         
 def check_fo_valid_move(grid, new_grid):
     return not grid == new_grid
 
 
-#______________________________________________________________________________
+#__________________________________AGENTS____________________________________________
 
 class random_2048_agent(Agent):
     __name__ = "random_2048_agent"
     def __init__(self):
         Agent.__init__(self)
         def program(percept):
-            return random.choice(["R","L","U","D"])
+            return random.choice(action_list)
         self.program = program
 
-#______________________________________________________________________________
-
-class SimpleReflexAgent(Agent):
-    """This agent takes action based solely on the percept. [Fig. 2.13]"""
-    __name__ = "SimpleReflexAgent"
+class random_2048_agent_with_validity_check(Agent):
+    __name__ = "random_2048_agent_with_validity_check"
     def __init__(self):
         Agent.__init__(self)
         def program(percept):
-            location, location_status = percept
-            if location_status == 'Dirty':
-                return 'Suck'
-            if location == loc_A:
-                return 'Right'
-            else:
-                return 'Left'
-        self.program = program
-
-class ReflexAgentWithState(Agent):
-    """This agent takes action based on the percept and state. [Fig. 2.16]"""
-
-    def __init__(self, rules, udpate_state):
-        Agent.__init__(self)
-        state, action = None, None
-        def program(percept):
-            state = update_state(state, action, percept)
-            rule = rule_match(state, rules)
-            action = rule.action
+            grid = percept
+            action = random.choice(action_list)
+            while not check_fo_valid_move(grid, merge_on_action(grid, action)):
+                action = random.choice(action_list)
             return action
         self.program = program
 
-def rule_match(state, rules):
-    "Find the first rule that matches state."
-    for rule in rules:  
-        if rule.matches(state):
-            return rule
+class greedy_2048_agent(Agent):
+    __name__ = "greedy_2048_agent"
+    def __init__(self):
+        Agent.__init__(self)
+        def program(percept):
+            grid = percept
+            best_action = ""
+            best_action_score = 0
+            shuffled_action_list = copy.deepcopy(action_list)
+            random.shuffle(shuffled_action_list)
+            for action in shuffled_action_list:
+                _,score = merge_on_action(grid, action)
+                if score >= best_action_score:
+                    best_action_score = score
+                    best_action = action
+            return action
+        self.program = program
+
 
 
 #______________________________________________________________________________
@@ -583,11 +381,12 @@ if __name__ == "__main__":
     e = env_2048() 
     
 
-    e.add_object(random_2048_agent())
+    #uncomment on of the lines to test different agents
+
+    e.add_object(random_2048_agent_with_validity_check())
+    # e.add_object(random_2048_agent())
+    # e.add_object(greedy_2048_agent())
+
+    
     e.run(1000)
     
-
-
-    # overall_performance = test_agent(SimpleReflexAgent, 5, envs)
-
-    # print("\nOverall performance of SimpleReflexAgent is {}".format(overall_performance))
