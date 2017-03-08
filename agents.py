@@ -349,7 +349,7 @@ class greedy_2048_agent(Agent):
                 if score >= best_action_score:
                     best_action_score = score
                     best_action = action
-            return action
+            return best_action
         self.program = program
 
 
