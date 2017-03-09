@@ -3,8 +3,10 @@ from random import randint
 
 
 #Define those two variables if you want
-GRID_SIZE = 10
-DELAY = 0.01
+PLAY_UNTIL = 32768
+GRID_SIZE = 4
+DELAY = 0.1
+INFO_LINES = 5 + GRID_SIZE
 try: 
     from termcolor import colored
     with_colors = True
@@ -12,7 +14,7 @@ except:
     with_colors = False
 color_code = {  "0":"white",
                 "2":"white",
-                "4":"grey",
+                "4":"blue",
                 "8":"green",
                 "16":"yellow",
                 "32":"blue",
@@ -21,8 +23,11 @@ color_code = {  "0":"white",
                 "256":"red",
                 "512":"green",
                 "1024":"blue",
-                "2048":"white"
-    
+                "2048":"white",
+                "4096":"blue",
+                "8192":"red",
+                "16384":"cyan",
+                "32768":"red"  
     }
 action_list = ["R","L","U","D"]
 #______________________________________________________________________________
@@ -91,7 +96,7 @@ class Environment:
     object_classes = [] ## List of classes that can go into environment
 
     def percept(self, agent):
-	"Return the percept that the agent sees at this point. Override this."
+        "Return the percept that the agent sees at this point. Override this."
         abstract
 
     def execute_action(self, agent, action):
@@ -99,12 +104,12 @@ class Environment:
         abstract
 
     def default_location(self, object):
-	"Default location to place a new object with unspecified location."
+        "Default location to place a new object with unspecified location."
         return None
 
     def exogenous_change(self):
-	"If there is spontaneous change in the world, override this."
-	pass
+        "If there is spontaneous change in the world, override this."
+        pass
 
     def is_done(self):
         "By default, we're done when we can't find a live agent."
@@ -113,31 +118,32 @@ class Environment:
         return True
 
     def step(self):
-	"""Run the environment for one time step. If the
-	actions and exogenous changes are independent, this method will
-	do.  If there are interactions between them, you'll need to
-	override this method."""
-	if not self.is_done():
-            actions = [agent.program(self.percept(agent)) for agent in self.agents]
-            for (agent, action) in zip(self.agents, actions):
-                self.execute_action(agent, action)
-            self.exogenous_change()
+        """Run the environment for one time step. If the
+        actions and exogenous changes are independent, this method will
+        do.  If there are interactions between them, you'll need to
+        override this method."""
+        if not self.is_done():
+                actions = [agent.program(self.percept(agent)) for agent in self.agents]
+                for (agent, action) in zip(self.agents, actions):
+                    self.execute_action(agent, action)
+                self.exogenous_change()
+
 
     def run(self, steps=1000):
-	"""Run the Environment for given number of time steps."""
-	for step in range(steps):
-            if self.is_done(): return
-            self.step()
+        """Run the Environment for given number of time steps."""
+        for step in range(steps):
+                if self.is_done(): return
+                self.step()
 
     def add_object(self, object, location=None):
-	"""Add an object to the environment, setting its location. Also keep
-	track of objects that are agents.  Shouldn't need to override this."""
-	object.location = location or self.default_location(object)
-	self.objects.append(object)
-	if isinstance(object, Agent):
-            object.performance = 0
-            self.agents.append(object)
-	return self
+        """Add an object to the environment, setting its location. Also keep
+        track of objects that are agents.  Shouldn't need to override this."""
+        object.location = location or self.default_location(object)
+        self.objects.append(object)
+        if isinstance(object, Agent):
+                object.performance = 0
+                self.agents.append(object)
+        return self
     
 #______________________________________________________________________________
 ## 2048 Environment
@@ -147,16 +153,23 @@ class env_2048(Environment):
     The agent perceives its location and the location's status. This serves as
     an example of how to implement a simple Environment."""
 
-    def __init__(self):
+    def __init__(self, Sound_of_silence=False):
         Environment.__init__(self)
+        self.Sound_of_silence = Sound_of_silence
         self.grid = get_empty_grid()
         self.score = 0
         self.steps = 0
-        print self.grid
+        self.highest_number = 0
         self.grid = add_random_cell(self.grid)
-        print self.grid
         self.grid = add_random_cell(self.grid)
-        print self.grid
+        if not Sound_of_silence:
+            print("FIRST GRID")
+            print_grid(self.grid)
+            print("Score: 0")
+            print("Steps: 0")
+            print("Highest number: 0")
+            print("Last move: ")
+            time.sleep(DELAY)
 
 
         
@@ -170,20 +183,50 @@ class env_2048(Environment):
         self.grid, move_score = merge_on_action(self.grid, action)
         self.score+=move_score
         self.steps+=1
+        self.highest_number = get_highest_number(self.grid)
+        if check_if_grid_has_emprty_spots(self.grid):
+            self.grid = add_random_cell(self.grid)
 
-        clear_screen()
-        self.grid = add_random_cell(self.grid)
-        print_grid(self.grid)
-        print("Score: {}".format(self.score))
-        print("Steps: {}".format(self.steps))
-        time.sleep(DELAY)
+        if not self.Sound_of_silence:
+            clean_n_lines_on_screen(INFO_LINES)
+            print("Agent: {}".format(agent.__name__))
+            print_grid(self.grid)
+            print("Score: {}".format(self.score))
+            print("Steps: {}".format(self.steps))
+            print("Highest number: {}".format(self.highest_number))
+            print("Last move: {}".format(action))
+            time.sleep(DELAY)
+        
 
     def default_location(self, object):
         "Agents start in either location at random."
         return 0
 
     def is_done(self):
-        return check_if_win(self.grid) or check_for_lose(self.grid)
+        win = check_if_win(self.grid)
+        lose = check_if_lose (self.grid) 
+        if not self.Sound_of_silence: 
+            if win:
+                print("You won, bitch!")
+            if lose:
+                print("You lost, bitch!")
+        return win or lose
+
+def check_if_grid_has_emprty_spots(grid):
+    for x in xrange(GRID_SIZE):
+        for y in xrange(GRID_SIZE):
+            if grid[x][y] == 0:
+                return True
+    return False
+
+
+def get_highest_number(grid):
+    highest_number = 0
+    for x in xrange(GRID_SIZE):
+        for y in xrange(GRID_SIZE):
+            if grid[x][y]> highest_number:
+                highest_number = grid[x][y]
+    return highest_number
 
 def merge_on_action(grid, action):
     if action == 'R':
@@ -285,7 +328,10 @@ def print_grid(grid, color_code=color_code):
             to_print = "{}{}{}".format(to_print, colored_number, " "*(6 - len(str(number))))
         print to_print
 
-
+def clean_n_lines_on_screen(n):
+    for i in xrange(n):
+        sys.stdout.write("\033[F") #back to previous line
+    sys.stdout.write("\033[K") #clear line
 
 def clear_screen():
     """Clear screen, return cursor to top left"""
@@ -296,17 +342,23 @@ def clear_screen():
 def check_if_win(grid):
     for x in xrange(GRID_SIZE):
         for y in xrange(GRID_SIZE):
-            if grid[x][y] == 2048:
+            if grid[x][y] == PLAY_UNTIL:
                 return True
     return False
 
-def check_for_lose(grid):
+def check_if_lose(grid):
     for action in action_list:
         potential_grid, _ = merge_on_action(grid, action)
         if not grid == potential_grid:
             return False
-    print "looser"
+    # print "looser"
     return True 
+
+def check_for_valid_action(grid, action):
+    # print grid
+    new_grid,_ = merge_on_action(grid, action)
+    # print new_grid
+    return check_fo_valid_move(grid, new_grid)
         
 def check_fo_valid_move(grid, new_grid):
     return not grid == new_grid
@@ -340,19 +392,64 @@ class greedy_2048_agent(Agent):
         Agent.__init__(self)
         def program(percept):
             grid = percept
-            best_action = ""
-            best_action_score = 0
-            shuffled_action_list = copy.deepcopy(action_list)
-            random.shuffle(shuffled_action_list)
-            for action in shuffled_action_list:
-                _,score = merge_on_action(grid, action)
-                if score >= best_action_score:
-                    best_action_score = score
-                    best_action = action
-            return best_action
+            return random.choice(get_best_greedy_actions(grid))
+        self.program = program
+
+class two_steps_greedy_2048_agent(Agent):
+    __name__ = "two_steps_greedy_2048_agent"
+    def __init__(self):
+        Agent.__init__(self)
+        def program(percept):
+            grid = percept
+            first_step_best_actions = get_best_greedy_actions(grid)
+            # print("First step actions: {}".format(first_step_best_actions))
+            first_step_best_actions = get_valid_moves(grid, first_step_best_actions)
+            # print("Valid step actions: {}".format(first_step_best_actions))
+            # print first_step_best_actions
+            best_first_step = random.choice(first_step_best_actions)
+            best_second_step_score = 0
+            for first_step_action in first_step_best_actions:
+                
+                first_step_grid,_ = merge_on_action(grid, first_step_action)
+                
+
+                for second_step_action in action_list:
+                
+                    _,score = merge_on_action(first_step_grid, second_step_action)
+                
+
+                    if score>best_second_step_score:
+                        best_first_step = first_step_action
+                        best_second_step_score = score
+
+
+
+            return best_first_step
         self.program = program
 
 
+def get_best_greedy_actions(grid):
+    best_actions = []
+    best_action_score = 0
+    for action in action_list:
+        _,score = merge_on_action(grid, action)
+        if score > best_action_score:
+            best_action_score = score
+            best_actions = [action]
+        elif score == best_action_score:
+            best_actions.append(action)
+    # print("JLYTGYFG{}".format(best_actions))
+    random.shuffle(best_actions)
+    return best_actions
+
+def get_valid_moves(grid, actions):
+    valid_actions = []
+    for action in actions:
+        if check_for_valid_action(grid, action):
+            valid_actions.append(action)
+    # if len(valid_actions)==0:
+    #     print"#########"
+    return valid_actions
 
 #______________________________________________________________________________
 
@@ -375,18 +472,76 @@ def test_agent(AgentFactory, steps, envs):
         total += agent.performance
     return float(total)/len(envs)
 
+def test_2048_agents(AgentFactory, steps, envs):
+    print("LTD")
+    total_score = 0
+    highest_numbers = { 0:0,
+                        2:0,
+                        4:0,
+                        8:0,
+                        16:0,
+                        32:0,
+                        64:0,
+                        128:0,
+                        256:0,
+                        512:0,
+                        1024:0,
+                        2048:0,
+                        4096:0,
+                        8192:0,
+                        16384:0,
+                        32768:0}
+    counter = 0
+    for env in envs:
+        agent = AgentFactory()
+        env.add_object(agent)
+        env.run(steps)
+        total_score += env.score
+        highest_numbers[env.highest_number]+=1
+
+        counter+=1
+        clean_n_lines_on_screen(1)
+        print("Tests runned: {}".format(counter))
+
+    clean_n_lines_on_screen(1)
+    print("____________________________________")
+    print("Tests runned: {}".format(counter))
+    average_score = float(total_score)/len(envs)
+    print("Agent: {}".format(agent.__name__))
+    print("Grid size: {}x{}".format(GRID_SIZE, GRID_SIZE))
+    print("Average score: {}".format(average_score))
+    print("Highest numbers: ")
+    import collections
+    sorted_highest_numbers = collections.OrderedDict(sorted(highest_numbers.items()))
+    for key, value in sorted_highest_numbers.iteritems():
+
+        print("{}{} - {} times".format(key," "*(5-len(str(key))) ,value))
+
+def testv(agent, envs): 
+    return test_2048_agents(agent, 10000, copy.deepcopy(envs)) 
+
+def watch_agent_in_env(AgentFactory, EnvFactory):
+    e = EnvFactory()
+    e.add_object(AgentFactory())
+    e.run(100000) 
 #______________________________________________________________________________
 
 if __name__ == "__main__":
-    e = env_2048() 
-    
 
-    #uncomment on of the lines to test different agents
-
-    e.add_object(random_2048_agent_with_validity_check())
-    # e.add_object(random_2048_agent())
-    # e.add_object(greedy_2048_agent())
+    print("____________________________________")
+    watch_agent_in_env(random_2048_agent, env_2048)
+    print("____________________________________")
+    watch_agent_in_env(random_2048_agent_with_validity_check, env_2048)
+    print("____________________________________")
+    watch_agent_in_env(greedy_2048_agent, env_2048)
+    print("____________________________________")
+    watch_agent_in_env(two_steps_greedy_2048_agent, env_2048)
+    print("____________________________________")
 
     
-    e.run(1000)
-    
+    envs = [env_2048(Sound_of_silence=True) for i in range(100)]
+    testv(random_2048_agent, envs)
+    testv(random_2048_agent_with_validity_check, envs)
+    testv(greedy_2048_agent, envs)
+    testv(two_steps_greedy_2048_agent, envs)
+ 
