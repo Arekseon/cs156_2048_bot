@@ -473,6 +473,8 @@ def test_agent(AgentFactory, steps, envs):
     return float(total)/len(envs)
 
 def test_2048_agents(AgentFactory, steps, envs):
+    print("____________________________________")
+    print("Agent: {}".format(AgentFactory.__name__))
     print("LTD")
     total_score = 0
     highest_numbers = { 0:0,
@@ -504,18 +506,16 @@ def test_2048_agents(AgentFactory, steps, envs):
         print("Tests runned: {}".format(counter))
 
     clean_n_lines_on_screen(1)
-    print("____________________________________")
     print("Tests runned: {}".format(counter))
     average_score = float(total_score)/len(envs)
-    print("Agent: {}".format(agent.__name__))
     print("Grid size: {}x{}".format(GRID_SIZE, GRID_SIZE))
     print("Average score: {}".format(average_score))
     print("Highest numbers: ")
     import collections
     sorted_highest_numbers = collections.OrderedDict(sorted(highest_numbers.items()))
     for key, value in sorted_highest_numbers.iteritems():
-
-        print("{}{} - {} times".format(key," "*(5-len(str(key))) ,value))
+        if not value == 0:  
+            print("{}{} - {} times".format(key," "*(5-len(str(key))) ,value))
 
 def testv(agent, envs): 
     return test_2048_agents(agent, 10000, copy.deepcopy(envs)) 
@@ -530,14 +530,17 @@ if __name__ == "__main__":
 
     print("____________________________________")
     watch_agent_in_env(random_2048_agent, env_2048)
+    time.sleep(2)
     print("____________________________________")
     watch_agent_in_env(random_2048_agent_with_validity_check, env_2048)
+    time.sleep(2)
     print("____________________________________")
     watch_agent_in_env(greedy_2048_agent, env_2048)
+    time.sleep(2)
     print("____________________________________")
     watch_agent_in_env(two_steps_greedy_2048_agent, env_2048)
     print("____________________________________")
-
+    time.sleep(2)
     
     envs = [env_2048(Sound_of_silence=True) for i in range(100)]
     testv(random_2048_agent, envs)
