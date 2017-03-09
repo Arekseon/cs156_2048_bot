@@ -6,6 +6,8 @@ from random import randint
 PLAY_UNTIL = 32768
 GRID_SIZE = 4
 DELAY = 0.1
+
+#functional constant, better don't change
 INFO_LINES = 5 + GRID_SIZE
 try: 
     from termcolor import colored
@@ -402,28 +404,16 @@ class two_steps_greedy_2048_agent(Agent):
         def program(percept):
             grid = percept
             first_step_best_actions = get_best_greedy_actions(grid)
-            # print("First step actions: {}".format(first_step_best_actions))
             first_step_best_actions = get_valid_moves(grid, first_step_best_actions)
-            # print("Valid step actions: {}".format(first_step_best_actions))
-            # print first_step_best_actions
             best_first_step = random.choice(first_step_best_actions)
             best_second_step_score = 0
             for first_step_action in first_step_best_actions:
-                
                 first_step_grid,_ = merge_on_action(grid, first_step_action)
-                
-
                 for second_step_action in action_list:
-                
                     _,score = merge_on_action(first_step_grid, second_step_action)
-                
-
                     if score>best_second_step_score:
                         best_first_step = first_step_action
                         best_second_step_score = score
-
-
-
             return best_first_step
         self.program = program
 
@@ -438,7 +428,6 @@ def get_best_greedy_actions(grid):
             best_actions = [action]
         elif score == best_action_score:
             best_actions.append(action)
-    # print("JLYTGYFG{}".format(best_actions))
     random.shuffle(best_actions)
     return best_actions
 
@@ -447,30 +436,42 @@ def get_valid_moves(grid, actions):
     for action in actions:
         if check_for_valid_action(grid, action):
             valid_actions.append(action)
-    # if len(valid_actions)==0:
-    #     print"#########"
     return valid_actions
 
+class left_corners_2048_agent(Agent):
+    __name__ = "left_corners_2048_agent"
+    def __init__(self):
+        Agent.__init__(self)
+        def program(percept):
+            grid = percept
+            actions = get_valid_moves(grid, ['U','L','D'])
+            if len(actions) ==0:
+                action = 'R'
+            else:
+                action = random.choice(actions)
+            return action
+        self.program = program
+
+class left_corners_greed_2048_agent(Agent):
+    __name__ = "left_corners_greed_2048_agent"
+    def __init__(self):
+        Agent.__init__(self)
+        def program(percept):
+            grid = percept
+
+            actions = get_best_greedy_actions(grid)
+            if 'R' in actions:
+                actions.remove('R')
+            if len(actions) ==0:
+                action = 'R'
+            else:
+                action = random.choice(actions)
+            return action
+        self.program = program
+
+
+
 #______________________________________________________________________________
-
-def compare_agents(EnvFactory, AgentFactories, n=10, steps=1000):
-    """See how well each of several agents do in n instances of an environment.
-    Pass in a factory (constructor) for environments, and several for agents.
-    Create n instances of the environment, and run each agent in copies of 
-    each one for steps. Return a list of (agent, average-score) tuples."""
-    envs = [EnvFactory() for i in range(n)]
-    return [(A, test_agent(A, steps, copy.deepcopy(envs))) 
-            for A in AgentFactories]
-
-def test_agent(AgentFactory, steps, envs):
-    "Return the mean score of running an agent in each of the envs, for steps"
-    total = 0
-    for env in envs:
-        agent = AgentFactory()
-        env.add_object(agent)
-        env.run(steps)
-        total += agent.performance
-    return float(total)/len(envs)
 
 def test_2048_agents(AgentFactory, steps, envs):
     print("____________________________________")
@@ -526,25 +527,38 @@ def watch_agent_in_env(AgentFactory, EnvFactory):
     e.run(100000) 
 #______________________________________________________________________________
 
-if __name__ == "__main__":
+def demo():
+    #List of all agents to test
+    agents_to_test = [  random_2048_agent, 
+                random_2048_agent_with_validity_check,
+                greedy_2048_agent,
+                two_steps_greedy_2048_agent,
+                left_corners_2048_agent,
+                left_corners_greed_2048_agent]
 
-    print("____________________________________")
-    watch_agent_in_env(random_2048_agent, env_2048)
-    time.sleep(2)
-    print("____________________________________")
-    watch_agent_in_env(random_2048_agent_with_validity_check, env_2048)
-    time.sleep(2)
-    print("____________________________________")
-    watch_agent_in_env(greedy_2048_agent, env_2048)
-    time.sleep(2)
-    print("____________________________________")
-    watch_agent_in_env(two_steps_greedy_2048_agent, env_2048)
-    print("____________________________________")
-    time.sleep(2)
-    
+
+    #Run visual test 
+    for agent in agents_to_test:
+        print("____________________________________")
+        watch_agent_in_env(agent, env_2048)
+        time.sleep(2)
+
+
+    #Run massive testings
     envs = [env_2048(Sound_of_silence=True) for i in range(100)]
-    testv(random_2048_agent, envs)
-    testv(random_2048_agent_with_validity_check, envs)
-    testv(greedy_2048_agent, envs)
-    testv(two_steps_greedy_2048_agent, envs)
- 
+    for agent in agents_to_test:
+            testv(agent, envs)
+
+
+def demo_one_agent(AgentFactory, times=0, visual=True):
+    if visual:
+        print("____________________________________")
+        watch_agent_in_env(AgentFactory, env_2048)
+        time.sleep(2)
+    if times !=0:
+        envs = [env_2048(Sound_of_silence=True) for i in range(times)]
+        testv(AgentFactory, envs)
+
+if __name__ == "__main__":
+    demo()
+    # demo_one_agent(left_corners_greed_2048_agent, times=1000)
