@@ -1,11 +1,11 @@
-import random, copy, time, sys
+import random, copy, time, sys, collections
 from random import randint
 
 
 #Define those two variables if you want
-PLAY_UNTIL = 32768
-GRID_SIZE = 4
-DELAY = 0.1
+PLAY_UNTIL = 32768*32768
+GRID_SIZE = 16
+DELAY = 0.001
 
 #functional constant, better don't change
 INFO_LINES = 5 + GRID_SIZE
@@ -321,7 +321,7 @@ def print_grid(grid, color_code=color_code):
     for line in grid:
         to_print = ""
         for number in line:
-            if with_colors:
+            if with_colors and (str(number) in color_code):
                 colored_number = colored(number, color_code["{}".format(number)])
             else:
                 colored_number = number
@@ -476,7 +476,7 @@ class left_corners_greed_2048_agent(Agent):
 def test_2048_agents(AgentFactory, steps, envs):
     print("____________________________________")
     print("Agent: {}".format(AgentFactory.__name__))
-    print("LTD")
+    print("Tests run: 0")
     total_score = 0
     highest_numbers = { 0:0,
                         2:0,
@@ -495,6 +495,7 @@ def test_2048_agents(AgentFactory, steps, envs):
                         16384:0,
                         32768:0}
     counter = 0
+    update_lines = 0
     for env in envs:
         agent = AgentFactory()
         env.add_object(agent)
@@ -503,23 +504,23 @@ def test_2048_agents(AgentFactory, steps, envs):
         highest_numbers[env.highest_number]+=1
 
         counter+=1
-        clean_n_lines_on_screen(1)
-        print("Tests runned: {}".format(counter))
+        clean_n_lines_on_screen(1+update_lines)
+        print("Tests run: {}".format(counter))
 
-    clean_n_lines_on_screen(1)
-    print("Tests runned: {}".format(counter))
-    average_score = float(total_score)/len(envs)
-    print("Grid size: {}x{}".format(GRID_SIZE, GRID_SIZE))
-    print("Average score: {}".format(average_score))
-    print("Highest numbers: ")
-    import collections
-    sorted_highest_numbers = collections.OrderedDict(sorted(highest_numbers.items()))
-    for key, value in sorted_highest_numbers.iteritems():
-        if not value == 0:  
-            print("{}{} - {} times".format(key," "*(5-len(str(key))) ,value))
+        average_score = float(total_score)/counter
+        print("Grid size: {}x{}".format(GRID_SIZE, GRID_SIZE))
+        print("Average score: {}".format(average_score))
+        print("Highest numbers: ")
+        update_lines = 3
+
+        sorted_highest_numbers = collections.OrderedDict(sorted(highest_numbers.items()))
+        for key, value in sorted_highest_numbers.iteritems():
+            if not value == 0:  
+                print("{}{} - {} times".format(key," "*(5-len(str(key))) ,value))
+                update_lines+=1
 
 def testv(agent, envs): 
-    return test_2048_agents(agent, 10000, copy.deepcopy(envs)) 
+    return test_2048_agents(agent, 100000, copy.deepcopy(envs)) 
 
 def watch_agent_in_env(AgentFactory, EnvFactory):
     e = EnvFactory()
@@ -560,5 +561,7 @@ def demo_one_agent(AgentFactory, times=0, visual=True):
         testv(AgentFactory, envs)
 
 if __name__ == "__main__":
-    demo()
-    # demo_one_agent(left_corners_greed_2048_agent, times=1000)
+    clear_screen()
+    # demo()
+    # demo_one_agent(two_steps_greedy_2048_agent, times=1000)
+    demo_one_agent(two_steps_greedy_2048_agent)
